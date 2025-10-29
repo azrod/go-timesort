@@ -1,4 +1,4 @@
-<img align="left" width="300"  src="logo.png" alt="go-timesort Logo" />
+<img align="left" width="305"  src="logo.png" alt="go-timesort Logo" />
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/azrod/go-timesort.svg)](https://pkg.go.dev/github.com/azrod/go-timesort)
 [![Go Report Card](https://goreportcard.com/badge/github.com/azrod/go-timesort)](https://goreportcard.com/report/github.com/azrod/go-timesort)
