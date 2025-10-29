@@ -1,4 +1,4 @@
-<img align="left" width="250"  src="logo.png" alt="go-timesort Logo" />
+<img align="left" width="300"  src="logo.png" alt="go-timesort Logo" />
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/azrod/go-timesort.svg)](https://pkg.go.dev/github.com/azrod/go-timesort)
 [![Go Report Card](https://goreportcard.com/badge/github.com/azrod/go-timesort)](https://goreportcard.com/report/github.com/azrod/go-timesort)
@@ -8,13 +8,14 @@
 **Overview**
 
 **go-timesort** is a lightweight and generic Go library that helps you organize and sort slices of any type based on a time or date field.  
-It is thread-safe, flexible, and designed for easy integration in your Go projects.
-<br/>
+It is thread-safe, flexible, and designed for easy integration in your Go projects
 
-> **Compatibility:**
+---
 
-> - Requires Go 1.18 or newer (uses Go generics)
-> - Zero external dependencies (pure standard library)
+**Compatibility**
+
+- Requires Go 1.18 or newer (uses Go generics)
+- Zero external dependencies (pure standard library)
 
 ## Features
 
