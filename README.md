@@ -7,7 +7,8 @@
 
 **Overview**
 
-**go-timesort** is a lightweight and generic Go library that helps you organize and sort slices of any type based on a time or date field.  
+**go-timesort** is a lightweight and generic Go library that helps you organize and sort slices of any type based on a time or date field.
+
 It is thread-safe, flexible, and designed for easy integration in your Go projects
 
 ---
