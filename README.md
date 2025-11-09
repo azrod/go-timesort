@@ -13,7 +13,13 @@ It is thread-safe, flexible, and designed for easy integration in your Go projec
 
 ---
 
-**Compatibility**
+## Learn More: Sorting Slices by Date in Go
+
+For a detailed explanation of how Go's `sort.Interface` works and how to sort slices by date, check out this Medium post:
+
+👉 [How to Sort a Golang Slice by Date](https://medium.com/@azrod/how-to-sort-a-golang-slice-by-date-0edce447407c)
+
+## Compatibility
 
 - Requires Go 1.18 or newer (uses Go generics)
 - Zero external dependencies (pure standard library)
