@@ -16,6 +16,9 @@ type TimeSlice[T any] struct {
 
 // New creates and returns a new TimeSlice instance for the given fieldTimeExtractor function.
 func New[T any](values []T, fieldTimeExtractor func(T) time.Time) *TimeSlice[T] {
+	if fieldTimeExtractor == nil {
+		panic("gts: fieldTimeExtractor cannot be nil")
+	}
 	return &TimeSlice[T]{
 		fieldTimeExtractor: fieldTimeExtractor,
 		slice:              values,
@@ -34,9 +37,11 @@ func (ts *TimeSlice[T]) Len() int {
 // Returns true if the time of slice[i] is before that of slice[j].
 func (ts *TimeSlice[T]) LessAsc(i, j int) bool {
 	ts.mu.RLock()
-	t1 := ts.fieldTimeExtractor(ts.slice[i])
-	t2 := ts.fieldTimeExtractor(ts.slice[j])
+	v1 := ts.slice[i]
+	v2 := ts.slice[j]
 	ts.mu.RUnlock()
+	t1 := ts.fieldTimeExtractor(v1)
+	t2 := ts.fieldTimeExtractor(v2)
 	return t1.Before(t2)
 }
 
@@ -44,9 +49,11 @@ func (ts *TimeSlice[T]) LessAsc(i, j int) bool {
 // Returns true if the time of slice[i] is after that of slice[j].
 func (ts *TimeSlice[T]) LessDesc(i, j int) bool {
 	ts.mu.RLock()
-	t1 := ts.fieldTimeExtractor(ts.slice[i])
-	t2 := ts.fieldTimeExtractor(ts.slice[j])
+	v1 := ts.slice[i]
+	v2 := ts.slice[j]
 	ts.mu.RUnlock()
+	t1 := ts.fieldTimeExtractor(v1)
+	t2 := ts.fieldTimeExtractor(v2)
 	return t1.After(t2)
 }
 
@@ -54,26 +61,44 @@ func (ts *TimeSlice[T]) LessDesc(i, j int) bool {
 // Implements sort.Interface.
 func (ts *TimeSlice[T]) Swap(i, j int) {
 	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	ts.slice[i], ts.slice[j] = ts.slice[j], ts.slice[i]
-	ts.mu.Unlock()
 }
 
 // SortAsc sorts the underlying slice in ascending order according to the extracted time field (thread-safe).
+// The comparator avoids holding the lock while calling the extractor by copying
+// the elements to compare out of the slice under a read-lock, then calling the
+// extractor on those copies.
 func (ts *TimeSlice[T]) SortAsc() {
-	ts.mu.Lock()
 	sort.SliceStable(ts.slice, func(i, j int) bool {
-		return ts.fieldTimeExtractor(ts.slice[i]).Before(ts.fieldTimeExtractor(ts.slice[j]))
+		// read the elements under read lock only
+		ts.mu.RLock()
+		v1 := ts.slice[i]
+		v2 := ts.slice[j]
+		ts.mu.RUnlock()
+		// call extractor outside the lock
+		t1 := ts.fieldTimeExtractor(v1)
+		t2 := ts.fieldTimeExtractor(v2)
+		return t1.Before(t2)
 	})
-	ts.mu.Unlock()
 }
 
 // SortDesc sorts the underlying slice in descending order according to the extracted time field (thread-safe).
+// The comparator avoids holding the lock while calling the extractor by copying
+// the elements to compare out of the slice under a read-lock, then calling the
+// extractor on those copies.
 func (ts *TimeSlice[T]) SortDesc() {
-	ts.mu.Lock()
 	sort.SliceStable(ts.slice, func(i, j int) bool {
-		return ts.fieldTimeExtractor(ts.slice[i]).After(ts.fieldTimeExtractor(ts.slice[j]))
+		// read the elements under read lock only
+		ts.mu.RLock()
+		v1 := ts.slice[i]
+		v2 := ts.slice[j]
+		ts.mu.RUnlock()
+		// call extractor outside the lock
+		t1 := ts.fieldTimeExtractor(v1)
+		t2 := ts.fieldTimeExtractor(v2)
+		return t1.After(t2)
 	})
-	ts.mu.Unlock()
 }
 
 // Items returns a copy of the underlying slice of items (thread-safe).
