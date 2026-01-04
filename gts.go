@@ -70,8 +70,21 @@ var (
 	intSlicePool  sync.Pool // stores []int
 	// SortStrategyThreshold controls when to switch from direct comparator sort to copy-then-sort strategy.
 	// Default is tuned to favor direct sort for small slices and copy-then-sort for larger ones.
+	// You can adjust this value at runtime using `SetSortStrategyThreshold`.
 	SortStrategyThreshold = 256
 )
+
+// SetSortStrategyThreshold sets the threshold (number of elements) at which the
+// library switches from a direct comparator sort to the copy-then-sort-in-place
+// strategy. A non-positive value disables the threshold and forces the direct
+// comparator approach for all sizes.
+func SetSortStrategyThreshold(n int) {
+	if n <= 0 {
+		SortStrategyThreshold = 0
+		return
+	}
+	SortStrategyThreshold = n
+}
 
 // SortAsc sorts the underlying slice in ascending order according to the extracted time field (thread-safe).
 // This implementation uses the decorate-sort-undecorate pattern with lower allocations:
