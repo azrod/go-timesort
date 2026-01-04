@@ -93,6 +93,23 @@ copyUsers := usersSorter.Clone()
 
 All operations on the underlying slice are protected by a mutex, making this library safe for concurrent use.
 
+## Tuning Sort Strategy
+
+For large slices the library uses a copy-then-sort-in-place strategy with precomputed time keys to minimize extractor calls and avoid holding locks during comparisons. For small slices it uses a direct comparator to avoid allocation overhead. You can tune the threshold that controls this behavior:
+
+- `SortStrategyThreshold` (package variable, default `256`) controls the number of elements at which the implementation switches strategies.
+- Use `SetSortStrategyThreshold(n)` to set the threshold at runtime. Set `n` to `0` to force the direct comparator for all sizes.
+
+Example:
+
+```go
+// Import
+import gts "github.com/azrod/go-timesort"
+
+// Change threshold to 1024
+gts.SetSortStrategyThreshold(1024)
+```
+
 ## Performance
 
 The library is designed for efficiency, with sorting algorithms optimized for performance. Benchmarks are provided to help you understand the performance characteristics with different data sizes.
