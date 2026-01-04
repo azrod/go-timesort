@@ -65,11 +65,17 @@ func (ts *TimeSlice[T]) Swap(i, j int) {
 	ts.slice[i], ts.slice[j] = ts.slice[j], ts.slice[i]
 }
 
+var (
+	timeSlicePool sync.Pool // stores []time.Time
+	intSlicePool  sync.Pool // stores []int
+)
+
 // SortAsc sorts the underlying slice in ascending order according to the extracted time field (thread-safe).
-// This implementation uses the decorate-sort-undecorate pattern: it copies the
-// slice, precomputes the time keys, sorts indices by key, and then reorders the
-// original slice once under a write lock. This reduces calls to the extractor
-// and avoids holding locks during comparison.
+// This implementation uses the decorate-sort-undecorate pattern with lower allocations:
+// - precompute a `[]time.Time` of keys
+// - sort a slice of indices using the keys
+// - reorder the slice once under a write lock
+// Temporary slices for times and indices are reused via `sync.Pool` to reduce allocations.
 func (ts *TimeSlice[T]) SortAsc() {
 	// copy current slice under read lock
 	ts.mu.RLock()
@@ -78,33 +84,58 @@ func (ts *TimeSlice[T]) SortAsc() {
 	ts.mu.RUnlock()
 
 	n := len(orig)
-	type pair struct {
-		idx int
-		t   time.Time
-	}
 	if n == 0 {
 		return
 	}
-	pairs := make([]pair, n)
-	for i := 0; i < n; i++ {
-		pairs[i] = pair{idx: i, t: ts.fieldTimeExtractor(orig[i])}
+	// get or allocate times slice
+	var times []time.Time
+	if v := timeSlicePool.Get(); v != nil {
+		times = v.([]time.Time)
+		if cap(times) < n {
+			times = make([]time.Time, n)
+		} else {
+			times = times[:n]
+		}
+	} else {
+		times = make([]time.Time, n)
 	}
-	sort.SliceStable(pairs, func(i, j int) bool {
-		return pairs[i].t.Before(pairs[j].t)
-	})
+	// fill times
+	for i := 0; i < n; i++ {
+		times[i] = ts.fieldTimeExtractor(orig[i])
+	}
+	// get or allocate indices slice
+	var idxs []int
+	if v := intSlicePool.Get(); v != nil {
+		idxs = v.([]int)
+		if cap(idxs) < n {
+			idxs = make([]int, n)
+		} else {
+			idxs = idxs[:n]
+		}
+	} else {
+		idxs = make([]int, n)
+	}
+	for i := 0; i < n; i++ {
+		idxs[i] = i
+	}
+	// sort indices by times
+	sort.SliceStable(idxs, func(i, j int) bool { return times[idxs[i]].Before(times[idxs[j]]) })
 	// build new ordered slice
 	newSlice := make([]T, n)
 	for i := 0; i < n; i++ {
-		newSlice[i] = orig[pairs[i].idx]
+		newSlice[i] = orig[idxs[i]]
 	}
 	// replace under write lock
 	ts.mu.Lock()
 	ts.slice = newSlice
 	ts.mu.Unlock()
+	// put buffers back to pools (reset length to 0 but keep capacity)
+	timeSlicePool.Put(times[:0])
+	intSlicePool.Put(idxs[:0])
 }
 
 // SortDesc sorts the underlying slice in descending order according to the extracted time field (thread-safe).
-// Uses the decorate-sort-undecorate pattern similar to SortAsc.
+// Uses the decorate-sort-undecorate pattern similar to SortAsc with index sorting reversed.
 func (ts *TimeSlice[T]) SortDesc() {
 	// copy current slice under read lock
 	ts.mu.RLock()
@@ -116,26 +147,51 @@ func (ts *TimeSlice[T]) SortDesc() {
 	if n == 0 {
 		return
 	}
-	type pair struct {
-		idx int
-		t   time.Time
+	// get or allocate times slice
+	var times []time.Time
+	if v := timeSlicePool.Get(); v != nil {
+		times = v.([]time.Time)
+		if cap(times) < n {
+			times = make([]time.Time, n)
+		} else {
+			times = times[:n]
+		}
+	} else {
+		times = make([]time.Time, n)
 	}
-	pairs := make([]pair, n)
+	// fill times
 	for i := 0; i < n; i++ {
-		pairs[i] = pair{idx: i, t: ts.fieldTimeExtractor(orig[i])}
+		times[i] = ts.fieldTimeExtractor(orig[i])
 	}
-	sort.SliceStable(pairs, func(i, j int) bool {
-		return pairs[i].t.After(pairs[j].t)
-	})
+	// get or allocate indices slice
+	var idxs []int
+	if v := intSlicePool.Get(); v != nil {
+		idxs = v.([]int)
+		if cap(idxs) < n {
+			idxs = make([]int, n)
+		} else {
+			idxs = idxs[:n]
+		}
+	} else {
+		idxs = make([]int, n)
+	}
+	for i := 0; i < n; i++ {
+		idxs[i] = i
+	}
+	// sort indices by times descending
+	sort.SliceStable(idxs, func(i, j int) bool { return times[idxs[i]].After(times[idxs[j]]) })
 	// build new ordered slice
 	newSlice := make([]T, n)
 	for i := 0; i < n; i++ {
-		newSlice[i] = orig[pairs[i].idx]
+		newSlice[i] = orig[idxs[i]]
 	}
 	// replace under write lock
 	ts.mu.Lock()
 	ts.slice = newSlice
 	ts.mu.Unlock()
+	// put buffers back to pools
+	timeSlicePool.Put(times[:0])
+	intSlicePool.Put(idxs[:0])
 }
 
 // Items returns a copy of the underlying slice of items (thread-safe).
