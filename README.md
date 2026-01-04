@@ -101,18 +101,18 @@ The library is designed for efficiency, with sorting algorithms optimized for pe
 goarch: arm64
 pkg: github.com/azrod/go-timesort
 cpu: Apple M1 Pro
-BenchmarkSortAsc_10-10           7224896               146.6 ns/op           120 B/op          3 allocs/op
-BenchmarkSortAsc_100-10          1235256               968.0 ns/op           120 B/op          3 allocs/op
-BenchmarkSortAsc_500-10           246874              4803 ns/op             120 B/op          3 allocs/op
-BenchmarkSortAsc_1000-10          131840              9006 ns/op             120 B/op          3 allocs/op
-BenchmarkSortAsc_5000-10           25975             46663 ns/op             120 B/op          3 allocs/op
-BenchmarkSortAsc_10000-10          12703             92791 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_10-10          8208446               143.4 ns/op           120 B/op          3 allocs/op
-BenchmarkSortDesc_100-10         1236774               959.9 ns/op           120 B/op          3 allocs/op
-BenchmarkSortDesc_500-10          249394              4705 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_1000-10         130200              9107 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_5000-10          25876             46386 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_10000-10         12745             93371 ns/op             120 B/op          3 allocs/op
+BenchmarkSortAsc_10-10           2749162             438.8 ns/op           1736 B/op          8 allocs/op
+BenchmarkSortAsc_100-10          397156              2790 ns/op           15912 B/op         8 allocs/op
+BenchmarkSortAsc_500-10          102378             11999 ns/op           77992 B/op         8 allocs/op
+BenchmarkSortAsc_1000-10         50924              23876 ns/op          155817 B/op         8 allocs/op
+BenchmarkSortAsc_5000-10         7962              135405 ns/op          778408 B/op         8 allocs/op
+BenchmarkSortAsc_10000-10        3693              376569 ns/op         1532074 B/op         8 allocs/op
+BenchmarkSortDesc_10-10         1000000             1013 ns/op           1736 B/op          8 allocs/op
+BenchmarkSortDesc_100-10         76129             15766 ns/op          15912 B/op         8 allocs/op
+BenchmarkSortDesc_500-10         14449             83490 ns/op          77992 B/op         8 allocs/op
+BenchmarkSortDesc_1000-10        7136             171374 ns/op         155816 B/op         8 allocs/op
+BenchmarkSortDesc_5000-10        1284             957855 ns/op         778408 B/op         8 allocs/op
+BenchmarkSortDesc_10000-10       612             1983840 ns/op        1532072 B/op         8 allocs/op
 ```
 
 ## License
