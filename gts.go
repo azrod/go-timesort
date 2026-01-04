@@ -68,6 +68,9 @@ func (ts *TimeSlice[T]) Swap(i, j int) {
 var (
 	timeSlicePool sync.Pool // stores []time.Time
 	intSlicePool  sync.Pool // stores []int
+	// SortStrategyThreshold controls when to switch from direct comparator sort to copy-then-sort strategy.
+	// Default is tuned to favor direct sort for small slices and copy-then-sort for larger ones.
+	SortStrategyThreshold = 256
 )
 
 // SortAsc sorts the underlying slice in ascending order according to the extracted time field (thread-safe).
@@ -87,6 +90,20 @@ func (ts *TimeSlice[T]) SortAsc() {
 	if n == 0 {
 		return
 	}
+	// if small, use direct comparator to avoid allocation/copy overhead
+	if n <= SortStrategyThreshold {
+		// sort in place using comparator that extracts times on demand
+		sort.SliceStable(orig, func(i, j int) bool {
+			// extract times without holding lock (we operate on copy)
+			return ts.fieldTimeExtractor(orig[i]).Before(ts.fieldTimeExtractor(orig[j]))
+		})
+		// replace under write lock
+		ts.mu.Lock()
+		ts.slice = orig
+		ts.mu.Unlock()
+		return
+	}
+
 	// get or allocate times slice
 	var times []time.Time
 	if v := timeSlicePool.Get(); v != nil {
@@ -103,35 +120,14 @@ func (ts *TimeSlice[T]) SortAsc() {
 	for i := 0; i < n; i++ {
 		times[i] = ts.fieldTimeExtractor(orig[i])
 	}
-	// get or allocate indices slice
-	var idxs []int
-	if v := intSlicePool.Get(); v != nil {
-		idxs = v.([]int)
-		if cap(idxs) < n {
-			idxs = make([]int, n)
-		} else {
-			idxs = idxs[:n]
-		}
-	} else {
-		idxs = make([]int, n)
-	}
-	for i := 0; i < n; i++ {
-		idxs[i] = i
-	}
-	// sort indices by times
-	sort.SliceStable(idxs, func(i, j int) bool { return times[idxs[i]].Before(times[idxs[j]]) })
-	// build new ordered slice
-	newSlice := make([]T, n)
-	for i := 0; i < n; i++ {
-		newSlice[i] = orig[idxs[i]]
-	}
+	// sort orig using times as keys (comparator uses times slice)
+	sort.SliceStable(orig, func(i, j int) bool { return times[i].Before(times[j]) })
 	// replace under write lock
 	ts.mu.Lock()
-	ts.slice = newSlice
+	ts.slice = orig
 	ts.mu.Unlock()
-	// put buffers back to pools (reset length to 0 but keep capacity)
+	// put times buffer back to pool
 	timeSlicePool.Put(times[:0])
-	intSlicePool.Put(idxs[:0])
 }
 
 // SortDesc sorts the underlying slice in descending order according to the extracted time field (thread-safe).
@@ -145,6 +141,17 @@ func (ts *TimeSlice[T]) SortDesc() {
 
 	n := len(orig)
 	if n == 0 {
+		return
+	}
+	// if small, use direct comparator to avoid allocation/copy overhead
+	if n <= SortStrategyThreshold {
+		sort.SliceStable(orig, func(i, j int) bool {
+			return ts.fieldTimeExtractor(orig[i]).After(ts.fieldTimeExtractor(orig[j]))
+		})
+		// replace under write lock
+		ts.mu.Lock()
+		ts.slice = orig
+		ts.mu.Unlock()
 		return
 	}
 	// get or allocate times slice
@@ -163,35 +170,14 @@ func (ts *TimeSlice[T]) SortDesc() {
 	for i := 0; i < n; i++ {
 		times[i] = ts.fieldTimeExtractor(orig[i])
 	}
-	// get or allocate indices slice
-	var idxs []int
-	if v := intSlicePool.Get(); v != nil {
-		idxs = v.([]int)
-		if cap(idxs) < n {
-			idxs = make([]int, n)
-		} else {
-			idxs = idxs[:n]
-		}
-	} else {
-		idxs = make([]int, n)
-	}
-	for i := 0; i < n; i++ {
-		idxs[i] = i
-	}
-	// sort indices by times descending
-	sort.SliceStable(idxs, func(i, j int) bool { return times[idxs[i]].After(times[idxs[j]]) })
-	// build new ordered slice
-	newSlice := make([]T, n)
-	for i := 0; i < n; i++ {
-		newSlice[i] = orig[idxs[i]]
-	}
+	// sort orig using times as keys (descending)
+	sort.SliceStable(orig, func(i, j int) bool { return times[i].After(times[j]) })
 	// replace under write lock
 	ts.mu.Lock()
-	ts.slice = newSlice
+	ts.slice = orig
 	ts.mu.Unlock()
-	// put buffers back to pools
+	// put times buffer back to pool
 	timeSlicePool.Put(times[:0])
-	intSlicePool.Put(idxs[:0])
 }
 
 // Items returns a copy of the underlying slice of items (thread-safe).
