@@ -66,39 +66,76 @@ func (ts *TimeSlice[T]) Swap(i, j int) {
 }
 
 // SortAsc sorts the underlying slice in ascending order according to the extracted time field (thread-safe).
-// The comparator avoids holding the lock while calling the extractor by copying
-// the elements to compare out of the slice under a read-lock, then calling the
-// extractor on those copies.
+// This implementation uses the decorate-sort-undecorate pattern: it copies the
+// slice, precomputes the time keys, sorts indices by key, and then reorders the
+// original slice once under a write lock. This reduces calls to the extractor
+// and avoids holding locks during comparison.
 func (ts *TimeSlice[T]) SortAsc() {
-	sort.SliceStable(ts.slice, func(i, j int) bool {
-		// read the elements under read lock only
-		ts.mu.RLock()
-		v1 := ts.slice[i]
-		v2 := ts.slice[j]
-		ts.mu.RUnlock()
-		// call extractor outside the lock
-		t1 := ts.fieldTimeExtractor(v1)
-		t2 := ts.fieldTimeExtractor(v2)
-		return t1.Before(t2)
+	// copy current slice under read lock
+	ts.mu.RLock()
+	orig := make([]T, len(ts.slice))
+	copy(orig, ts.slice)
+	ts.mu.RUnlock()
+
+	n := len(orig)
+	type pair struct {
+		idx int
+		t   time.Time
+	}
+	if n == 0 {
+		return
+	}
+	pairs := make([]pair, n)
+	for i := 0; i < n; i++ {
+		pairs[i] = pair{idx: i, t: ts.fieldTimeExtractor(orig[i])}
+	}
+	sort.SliceStable(pairs, func(i, j int) bool {
+		return pairs[i].t.Before(pairs[j].t)
 	})
+	// build new ordered slice
+	newSlice := make([]T, n)
+	for i := 0; i < n; i++ {
+		newSlice[i] = orig[pairs[i].idx]
+	}
+	// replace under write lock
+	ts.mu.Lock()
+	ts.slice = newSlice
+	ts.mu.Unlock()
 }
 
 // SortDesc sorts the underlying slice in descending order according to the extracted time field (thread-safe).
-// The comparator avoids holding the lock while calling the extractor by copying
-// the elements to compare out of the slice under a read-lock, then calling the
-// extractor on those copies.
+// Uses the decorate-sort-undecorate pattern similar to SortAsc.
 func (ts *TimeSlice[T]) SortDesc() {
-	sort.SliceStable(ts.slice, func(i, j int) bool {
-		// read the elements under read lock only
-		ts.mu.RLock()
-		v1 := ts.slice[i]
-		v2 := ts.slice[j]
-		ts.mu.RUnlock()
-		// call extractor outside the lock
-		t1 := ts.fieldTimeExtractor(v1)
-		t2 := ts.fieldTimeExtractor(v2)
-		return t1.After(t2)
+	// copy current slice under read lock
+	ts.mu.RLock()
+	orig := make([]T, len(ts.slice))
+	copy(orig, ts.slice)
+	ts.mu.RUnlock()
+
+	n := len(orig)
+	if n == 0 {
+		return
+	}
+	type pair struct {
+		idx int
+		t   time.Time
+	}
+	pairs := make([]pair, n)
+	for i := 0; i < n; i++ {
+		pairs[i] = pair{idx: i, t: ts.fieldTimeExtractor(orig[i])}
+	}
+	sort.SliceStable(pairs, func(i, j int) bool {
+		return pairs[i].t.After(pairs[j].t)
 	})
+	// build new ordered slice
+	newSlice := make([]T, n)
+	for i := 0; i < n; i++ {
+		newSlice[i] = orig[pairs[i].idx]
+	}
+	// replace under write lock
+	ts.mu.Lock()
+	ts.slice = newSlice
+	ts.mu.Unlock()
 }
 
 // Items returns a copy of the underlying slice of items (thread-safe).
