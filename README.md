@@ -93,6 +93,23 @@ copyUsers := usersSorter.Clone()
 
 All operations on the underlying slice are protected by a mutex, making this library safe for concurrent use.
 
+## Tuning Sort Strategy
+
+For large slices the library uses a copy-then-sort-in-place strategy with precomputed time keys to minimize extractor calls and avoid holding locks during comparisons. For small slices it uses a direct comparator to avoid allocation overhead. You can tune the threshold that controls this behavior:
+
+- `SortStrategyThreshold` (package variable, default `256`) controls the number of elements at which the implementation switches strategies.
+- Use `SetSortStrategyThreshold(n)` to set the threshold at runtime. Set `n` to `0` to force the direct comparator for all sizes.
+
+Example:
+
+```go
+// Import
+import gts "github.com/azrod/go-timesort"
+
+// Change threshold to 1024
+gts.SetSortStrategyThreshold(1024)
+```
+
 ## Performance
 
 The library is designed for efficiency, with sorting algorithms optimized for performance. Benchmarks are provided to help you understand the performance characteristics with different data sizes.
@@ -101,18 +118,18 @@ The library is designed for efficiency, with sorting algorithms optimized for pe
 goarch: arm64
 pkg: github.com/azrod/go-timesort
 cpu: Apple M1 Pro
-BenchmarkSortAsc_10-10           7224896               146.6 ns/op           120 B/op          3 allocs/op
-BenchmarkSortAsc_100-10          1235256               968.0 ns/op           120 B/op          3 allocs/op
-BenchmarkSortAsc_500-10           246874              4803 ns/op             120 B/op          3 allocs/op
-BenchmarkSortAsc_1000-10          131840              9006 ns/op             120 B/op          3 allocs/op
-BenchmarkSortAsc_5000-10           25975             46663 ns/op             120 B/op          3 allocs/op
-BenchmarkSortAsc_10000-10          12703             92791 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_10-10          8208446               143.4 ns/op           120 B/op          3 allocs/op
-BenchmarkSortDesc_100-10         1236774               959.9 ns/op           120 B/op          3 allocs/op
-BenchmarkSortDesc_500-10          249394              4705 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_1000-10         130200              9107 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_5000-10          25876             46386 ns/op             120 B/op          3 allocs/op
-BenchmarkSortDesc_10000-10         12745             93371 ns/op             120 B/op          3 allocs/op
+BenchmarkSortAsc_10-10           2749162             438.8 ns/op           1736 B/op          8 allocs/op
+BenchmarkSortAsc_100-10          397156              2790 ns/op           15912 B/op         8 allocs/op
+BenchmarkSortAsc_500-10          102378             11999 ns/op           77992 B/op         8 allocs/op
+BenchmarkSortAsc_1000-10         50924              23876 ns/op          155817 B/op         8 allocs/op
+BenchmarkSortAsc_5000-10         7962              135405 ns/op          778408 B/op         8 allocs/op
+BenchmarkSortAsc_10000-10        3693              376569 ns/op         1532074 B/op         8 allocs/op
+BenchmarkSortDesc_10-10         1000000             1013 ns/op           1736 B/op          8 allocs/op
+BenchmarkSortDesc_100-10         76129             15766 ns/op          15912 B/op         8 allocs/op
+BenchmarkSortDesc_500-10         14449             83490 ns/op          77992 B/op         8 allocs/op
+BenchmarkSortDesc_1000-10        7136             171374 ns/op         155816 B/op         8 allocs/op
+BenchmarkSortDesc_5000-10        1284             957855 ns/op         778408 B/op         8 allocs/op
+BenchmarkSortDesc_10000-10       612             1983840 ns/op        1532072 B/op         8 allocs/op
 ```
 
 ## License

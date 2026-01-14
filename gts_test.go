@@ -39,9 +39,12 @@ func BenchmarkSortAsc_10000(b *testing.B) { benchmarkSortAsc(b, 10000) }
 
 func benchmarkSortAsc(b *testing.B, n int) {
 	events := generateLargeEvents(n)
-	ts := New(events, eventTime)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		// make a copy of the events for each iteration to ensure sorting work is done
+		// on unsorted data and benchmarks are representative
+		eCopy := append([]testEvent(nil), events...)
+		ts := New(eCopy, eventTime)
 		ts.SortAsc()
 	}
 }
@@ -55,9 +58,12 @@ func BenchmarkSortDesc_10000(b *testing.B) { benchmarkSortDesc(b, 10000) }
 
 func benchmarkSortDesc(b *testing.B, n int) {
 	events := generateLargeEvents(n)
-	ts := New(events, eventTime)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		// copy the events per iteration so each SortDesc operates on the same
+		// unsorted dataset
+		eCopy := append([]testEvent(nil), events...)
+		ts := New(eCopy, eventTime)
 		ts.SortDesc()
 	}
 }
